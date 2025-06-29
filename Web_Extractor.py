@@ -66,7 +66,7 @@ st.set_page_config(page_title="📘 Web Novel HTML Extractor", layout="wide")
 
 st.title("📖 Chinese Web Novel Extractor")
 
-uploaded = st.file_uploader("Upload a saved HTML chapter page", type="html")
+uploaded = st.file_uploader("Upload a saved HTML chapter page", type="")
 
 # Config Panel in Sidebar (for content div id and chapter title id)
 with st.sidebar:
