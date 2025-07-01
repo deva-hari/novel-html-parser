@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 import logging
+import chardet
 
 # ------------------ Logger Setup ------------------
 logger = logging.getLogger()
@@ -86,42 +87,49 @@ with st.sidebar:
 
 # ------------------ HTML Processing ------------------
 if uploaded:
-    # Try reading with utf-8, then fallback to utf-16 and latin-1
     raw_bytes = uploaded.read()
-    encodings_to_try = ["utf-8", "utf-16", "latin-1"]
-    for enc in encodings_to_try:
-        try:
-            html = raw_bytes.decode(enc)
-            break
-        except UnicodeDecodeError:
-            html = None
-    if html is None:
-        st.error("Could not decode file. Please check the file encoding.")
-    else:
-        extracted = parse_html(html, config)
+    # Use chardet to detect encoding
+    detected = chardet.detect(raw_bytes)
+    encoding = detected.get("encoding", "utf-8")
+    try:
+        html = raw_bytes.decode(encoding)
+    except Exception:
+        # Fallback to utf-8 with replacement if decoding fails
+        html = raw_bytes.decode("utf-8", errors="replace")
+    extracted = parse_html(html, config)
 
-        with st.expander(f"📘 Book Title: {extracted['book_title']}"):
-            st.write(extracted["book_title"])
-        with st.expander(f"📄 Chapter Title: {extracted['chapter_title']}"):
-            st.write(extracted["chapter_title"])
-
-        with st.expander("📄 View Extracted Content"):
-            st.code(extracted["main_content"], language="markdown")
-            st.download_button(
-                "📥 Download .txt", extracted["main_content"], file_name="chapter.txt"
+    # Normalize encoding for all extracted fields
+    def to_utf8(text):
+        if isinstance(text, str):
+            return text.encode("utf-8", errors="replace").decode(
+                "utf-8", errors="replace"
             )
+        return text
 
-        # Download button at the bottom with book/chapter title and content
-        download_text = f"Book: {extracted['book_title']}\nChapter: {extracted['chapter_title']}\n\n{extracted['main_content']}"
+    extracted["book_title"] = to_utf8(extracted["book_title"])
+    extracted["chapter_title"] = to_utf8(extracted["chapter_title"])
+    extracted["main_content"] = to_utf8(extracted["main_content"])
+
+    with st.expander(f"📘 Book Title: {extracted['book_title']}"):
+        st.write(extracted["book_title"])
+    with st.expander(f"📄 Chapter Title: {extracted['chapter_title']}"):
+        st.write(extracted["chapter_title"])
+
+    with st.expander("📄 View Extracted Content"):
+        st.code(extracted["main_content"], language="markdown")
         st.download_button(
-            "📥 Download Book + Chapter + Content (.txt)",
-            download_text,
-            file_name=f"{extracted['book_title']}_{extracted['chapter_title']}.txt".replace(
-                "/", "_"
-            ).replace(
-                "\\", "_"
-            ),
+            "📥 Download .txt", extracted["main_content"], file_name="chapter.txt"
         )
+
+    # Download button at the bottom with book/chapter title and content
+    download_text = f"Book: {extracted['book_title']}\nChapter: {extracted['chapter_title']}\n\n{extracted['main_content']}"
+    st.download_button(
+        "📥 Download Book + Chapter + Content (.txt)",
+        download_text,
+        file_name=f"{extracted['book_title']}_{extracted['chapter_title']}.txt".replace(
+            "/", "_"
+        ).replace("\\", "_"),
+    )
 
 # Footer
 st.markdown("---")
