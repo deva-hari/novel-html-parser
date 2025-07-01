@@ -86,29 +86,42 @@ with st.sidebar:
 
 # ------------------ HTML Processing ------------------
 if uploaded:
-    html = uploaded.read().decode("utf-8")
-    extracted = parse_html(html, config)
+    # Try reading with utf-8, then fallback to utf-16 and latin-1
+    raw_bytes = uploaded.read()
+    encodings_to_try = ["utf-8", "utf-16", "latin-1"]
+    for enc in encodings_to_try:
+        try:
+            html = raw_bytes.decode(enc)
+            break
+        except UnicodeDecodeError:
+            html = None
+    if html is None:
+        st.error("Could not decode file. Please check the file encoding.")
+    else:
+        extracted = parse_html(html, config)
 
-    with st.expander(f"📘 Book Title: {extracted['book_title']}"):
-        st.write(extracted["book_title"])
-    with st.expander(f"📄 Chapter Title: {extracted['chapter_title']}"):
-        st.write(extracted["chapter_title"])
+        with st.expander(f"📘 Book Title: {extracted['book_title']}"):
+            st.write(extracted["book_title"])
+        with st.expander(f"📄 Chapter Title: {extracted['chapter_title']}"):
+            st.write(extracted["chapter_title"])
 
-    with st.expander("📄 View Extracted Content"):
-        st.code(extracted["main_content"], language="markdown")
+        with st.expander("📄 View Extracted Content"):
+            st.code(extracted["main_content"], language="markdown")
+            st.download_button(
+                "📥 Download .txt", extracted["main_content"], file_name="chapter.txt"
+            )
+
+        # Download button at the bottom with book/chapter title and content
+        download_text = f"Book: {extracted['book_title']}\nChapter: {extracted['chapter_title']}\n\n{extracted['main_content']}"
         st.download_button(
-            "📥 Download .txt", extracted["main_content"], file_name="chapter.txt"
+            "📥 Download Book + Chapter + Content (.txt)",
+            download_text,
+            file_name=f"{extracted['book_title']}_{extracted['chapter_title']}.txt".replace(
+                "/", "_"
+            ).replace(
+                "\\", "_"
+            ),
         )
-
-    # Download button at the bottom with book/chapter title and content
-    download_text = f"Book: {extracted['book_title']}\nChapter: {extracted['chapter_title']}\n\n{extracted['main_content']}"
-    st.download_button(
-        "📥 Download Book + Chapter + Content (.txt)",
-        download_text,
-        file_name=f"{extracted['book_title']}_{extracted['chapter_title']}.txt".replace(
-            "/", "_"
-        ).replace("\\", "_"),
-    )
 
 # Footer
 st.markdown("---")
